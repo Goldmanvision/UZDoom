@@ -29,6 +29,8 @@ public:
 private:
     DoDASimulation() = default;
 
+    void ClearToDefaultState();
+
     uint64_t mStrategicMinutes = 0;
     DoDAPersonId mNextPersonId = 1;
     DoDATaskId mNextTaskId = 1;

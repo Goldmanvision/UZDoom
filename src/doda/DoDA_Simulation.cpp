@@ -1,4 +1,6 @@
 ﻿#include "doda/DoDA_Simulation.h"
+#include "doda/DoDA_SaveSchema.h"
+#include "serializer.h"
 #include "printf.h"
 #include <algorithm>
 
@@ -6,6 +8,38 @@ DoDASimulation& DoDASimulation::GetInstance()
 {
     static DoDASimulation instance;
     return instance;
+}
+
+void DoDASimulation::Serialize(FSerializer& arc)
+{
+    if (arc.isWriting())
+    {
+        if (arc.BeginObject("doda"))
+        {
+            int schemaVersion = DODA_SAVE_SCHEMA_VERSION;
+            arc("schema_version", schemaVersion);
+            arc("strategic_minutes", mStrategicMinutes);
+            arc.EndObject();
+        }
+    }
+    else if (arc.isReading())
+    {
+        mStrategicMinutes = 0;
+        if (arc.BeginObject("doda"))
+        {
+            int schemaVersion = 0;
+            arc("schema_version", schemaVersion);
+            if (schemaVersion != DODA_SAVE_SCHEMA_VERSION)
+            {
+                Printf("[DoDA] Error: Unsupported save schema version %d (expected %d)\n",
+                    schemaVersion, DODA_SAVE_SCHEMA_VERSION);
+                arc.EndObject();
+                return;
+            }
+            arc("strategic_minutes", mStrategicMinutes);
+            arc.EndObject();
+        }
+    }
 }
 
 bool DoDASimulation::ResetDebugFixture()

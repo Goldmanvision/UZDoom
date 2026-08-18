@@ -81,6 +81,7 @@
 #include "version.h"
 #include "vm.h"
 #include "wi_stuff.h"
+#include "doda/DoDA_Simulation.h"
 
 // MACROS ------------------------------------------------------------------
 
@@ -2211,6 +2212,7 @@ void G_DoLoadGame ()
 	savegamerestore = false;
 
 	STAT_Serialize(arc);
+	DoDASimulation::GetInstance().Serialize(arc);
 	FRandom::StaticReadRNGState(arc);
 	P_ReadACSDefereds(arc);
 	P_ReadACSVars(arc);
@@ -2505,6 +2507,7 @@ void G_DoSaveGame (bool okForQuicksave, bool forceQuicksave, FString filename, c
 					("laststartpos", laststartpos);
 
 	STAT_Serialize(savegameglobals);
+	DoDASimulation::GetInstance().Serialize(savegameglobals);
 	FRandom::StaticWriteRNGState(savegameglobals);
 	P_WriteACSDefereds(savegameglobals);
 	P_WriteACSVars(savegameglobals);

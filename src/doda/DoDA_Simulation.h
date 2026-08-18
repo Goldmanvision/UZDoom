@@ -4,10 +4,14 @@
 #include <cstdint>
 #include "doda/DoDA_Types.h"
 
+class FSerializer;
+
 class DoDASimulation
 {
 public:
     static DoDASimulation& GetInstance();
+
+    void Serialize(FSerializer& arc);
 
     bool ResetDebugFixture();
     bool AdvanceStrategicMinutes(int deltaMinutes);

@@ -584,6 +584,7 @@ file( GLOB HEADER_FILES
 
 	utility/*.h
 	widgets/*.h
+	doda/*.h
 	scripting/*.h
 	scripting/backend/*.h
 	scripting/decorate/*.h
@@ -811,6 +812,8 @@ set (PCH_SOURCES
 	m_cheat.cpp
 	m_misc.cpp
 	version.cpp
+	doda/DoDA_Simulation.cpp
+	doda/DoDA_ZBind.cpp
 	playsim/p_acs.cpp
 	playsim/p_actionfunctions.cpp
 	p_conversation.cpp

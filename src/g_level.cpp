@@ -89,6 +89,7 @@
 #include "fragglescript/t_script.h"
 
 #include "texturemanager.h"
+#include "doda/DoDA_Simulation.h"
 
 void STAT_StartNewGame(const char *lev);
 void STAT_ChangeLevel(const char *newl, FLevelLocals *Level);
@@ -502,6 +503,7 @@ void G_NewInit ()
 
 void G_DoNewGame (void)
 {
+	DoDASimulation::GetInstance().ClearForNewCampaign();
 	G_NewInit ();
 	playeringame[consoleplayer] = 1;
 	if (d_skill != -1)

@@ -118,6 +118,7 @@
 #include "wi_stuff.h"
 #include "wipe.h"
 #include "zwidget/window/window.h"
+#include "doda/DoDA_Simulation.h"
 
 #ifdef __unix__
 #include "i_system.h"  // for SHARE_DIR
@@ -3906,6 +3907,7 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<FileSys::ResourceN
 						CheckWarpTransMap(startmap, true);
 						if (demorecording)
 							G_BeginRecording(startmap.GetChars());
+						DoDASimulation::GetInstance().ClearForNewCampaign();
 						G_InitNew(startmap.GetChars(), false);
 						if (StoredWarp.IsNotEmpty())
 						{

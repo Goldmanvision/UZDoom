@@ -22,6 +22,12 @@ void DoDASimulation::ClearToDefaultState()
     mAssignments.clear();
 }
 
+void DoDASimulation::ClearForNewCampaign()
+{
+    ClearToDefaultState();
+    Printf("[DoDA] New campaign: strategic state cleared.\n");
+}
+
 void DoDASimulation::Serialize(FSerializer& arc)
 {
     if (arc.isWriting())

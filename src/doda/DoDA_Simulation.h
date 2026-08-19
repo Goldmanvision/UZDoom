@@ -12,6 +12,7 @@ public:
     static DoDASimulation& GetInstance();
 
     void Serialize(FSerializer& arc);
+    void ClearForNewCampaign();
 
     bool ResetDebugFixture();
     bool AdvanceStrategicMinutes(int deltaMinutes);

@@ -812,6 +812,7 @@ set (PCH_SOURCES
 	m_cheat.cpp
 	m_misc.cpp
 	version.cpp
+	doda/DoDA_LibColonyBridge.cpp
 	doda/DoDA_Simulation.cpp
 	doda/DoDA_ZBind.cpp
 	playsim/p_acs.cpp

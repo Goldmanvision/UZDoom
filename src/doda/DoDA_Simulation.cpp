@@ -1,8 +1,10 @@
 ﻿#include "doda/DoDA_Simulation.h"
 #include "doda/DoDA_SaveSchema.h"
+#include "doda/DoDA_LibColonyBridge.h"
 #include "serializer.h"
 #include "printf.h"
 #include <algorithm>
+#include <map>
 #include <set>
 
 DoDASimulation& DoDASimulation::GetInstance()
@@ -572,7 +574,7 @@ bool DoDASimulation::ResetDebugFixture()
 {
     ClearToDefaultState();
 
-    mPeople.push_back({ mNextPersonId++, "Alice", 5, 1, DoDAPersonStatus::Available });
+    mPeople.push_back({ mNextPersonId++, "Alice", 4, 1, DoDAPersonStatus::Available });
     mPeople.push_back({ mNextPersonId++, "Bob", 3, 0, DoDAPersonStatus::Available });
     mPeople.push_back({ mNextPersonId++, "Charlie", 8, 2, DoDAPersonStatus::Available });
 
@@ -610,125 +612,248 @@ bool DoDASimulation::AdvanceStrategicMinutes(int deltaMinutes)
 
 bool DoDASimulation::RunDeterministicAssignment()
 {
-    struct Candidate
+    if (!mAssignments.empty())
     {
-        int TaskPriority;
-        DoDATaskId TaskId;
-        int Cost;
-        int PersonWorkload;
-        DoDAPersonId PersonId;
-        size_t TaskIndex;
-        size_t PersonIndex;
-    };
+        Printf("[DoDA] Error: RunDeterministicAssignment called with pre-existing assignments; single-run policy enforced.\n");
+        return false;
+    }
 
-    std::vector<Candidate> candidates;
+    std::vector<DoDACandidateInput> candidates;
 
-    for (size_t t = 0; t < mTasks.size(); ++t)
+    for (const auto& task : mTasks)
     {
-        const auto& task = mTasks[t];
         if (task.Status != DoDATaskStatus::Pending)
             continue;
+        if (task.Id == 0 || task.Id >= mNextTaskId)
+            continue;
+        if (task.Priority < 0 || task.RequiredSkill < 0 || task.EstimatedWork < 0)
+            continue;
 
-        for (size_t p = 0; p < mPeople.size(); ++p)
+        for (const auto& person : mPeople)
         {
-            const auto& person = mPeople[p];
             if (person.Status != DoDAPersonStatus::Available)
+                continue;
+            if (person.Id == 0 || person.Id >= mNextPersonId)
+                continue;
+            if (person.Skill < 0 || person.Workload < 0)
                 continue;
 
             if (person.Skill < task.RequiredSkill)
                 continue;
 
-            int skillGap = task.RequiredSkill - person.Skill;
-            int skillGapPenalty = std::max(0, skillGap);
-            int rawCost = skillGapPenalty + person.Workload * 10 + task.EstimatedWork - person.Skill * 5;
-            int cost = std::max(0, rawCost);
+            const int64_t rawCost =
+                static_cast<int64_t>(person.Workload) * 10 +
+                static_cast<int64_t>(task.EstimatedWork) -
+                static_cast<int64_t>(person.Skill) * 5;
 
-            Candidate cand;
-            cand.TaskPriority = task.Priority;
-            cand.TaskId = task.Id;
-            cand.Cost = cost;
-            cand.PersonWorkload = person.Workload;
+            const int64_t baseCost64 = std::max<int64_t>(0, rawCost);
+            if (baseCost64 > DODA_MAX_BASE_COST)
+                continue;
+
+            const int baseCost = static_cast<int>(baseCost64);
+
+            int64_t tieBreak = (static_cast<int64_t>(task.Id) - 1) * static_cast<int64_t>(DODA_MAX_PEOPLE) + (static_cast<int64_t>(person.Id) - 1);
+            if (tieBreak < 0)
+                continue;
+
+            int64_t totalCost = static_cast<int64_t>(baseCost) * DODA_COST_SCALE + tieBreak;
+            if (totalCost < 0 || totalCost >= (1LL << 53))
+                continue;
+
+            DoDACandidateInput cand{};
             cand.PersonId = person.Id;
-            cand.TaskIndex = t;
-            cand.PersonIndex = p;
-
+            cand.TaskId = task.Id;
+            cand.BaseCost = baseCost;
+            cand.TotalCost = totalCost;
             candidates.push_back(cand);
         }
     }
 
-    std::sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) {
-        if (a.TaskPriority != b.TaskPriority)
-            return a.TaskPriority > b.TaskPriority;
+    std::vector<DoDAAssignmentOutput> optimizedOutputs;
+    if (!DoDA_OptimizeAssignments(candidates, optimizedOutputs))
+    {
+        Printf("[DoDA] Error: LibColony optimization bridge failed; strategic state unchanged.\n");
+        return false;
+    }
+
+    // Sort assignments by TaskId descending (and PersonId ascending) for deterministic storage order
+    std::sort(optimizedOutputs.begin(), optimizedOutputs.end(), [](const DoDAAssignmentOutput& a, const DoDAAssignmentOutput& b) {
         if (a.TaskId != b.TaskId)
-            return a.TaskId < b.TaskId;
-        if (a.Cost != b.Cost)
-            return a.Cost < b.Cost;
-        if (a.PersonWorkload != b.PersonWorkload)
-            return a.PersonWorkload < b.PersonWorkload;
+            return a.TaskId > b.TaskId;
         return a.PersonId < b.PersonId;
     });
 
-    std::vector<bool> taskAssigned(mTasks.size(), false);
-    std::vector<bool> personAssigned(mPeople.size(), false);
-
-    struct PendingMatch
+    if (optimizedOutputs.size() > DODA_MAX_ASSIGNMENTS)
     {
-        size_t TaskIndex;
-        size_t PersonIndex;
-        DoDATaskId TaskId;
-        DoDAPersonId PersonId;
-        int Cost;
-    };
-    std::vector<PendingMatch> matches;
+        Printf("[DoDA] Error: Assignment count exceeds maximum capacity; strategic state unchanged.\n");
+        return false;
+    }
 
+    std::map<std::pair<DoDAPersonId, DoDATaskId>, int> candidateMap;
     for (const auto& cand : candidates)
     {
-        if (taskAssigned[cand.TaskIndex] || personAssigned[cand.PersonIndex])
-            continue;
-
-        taskAssigned[cand.TaskIndex] = true;
-        personAssigned[cand.PersonIndex] = true;
-
-        PendingMatch match;
-        match.TaskIndex = cand.TaskIndex;
-        match.PersonIndex = cand.PersonIndex;
-        match.TaskId = cand.TaskId;
-        match.PersonId = cand.PersonId;
-        match.Cost = cand.Cost;
-        matches.push_back(match);
+        candidateMap[std::make_pair(cand.PersonId, cand.TaskId)] = cand.BaseCost;
     }
 
-    // Validate candidates before commit
-    for (const auto& match : matches)
+    std::set<DoDAPersonId> matchedPeople;
+    std::set<DoDATaskId> matchedTasks;
+    std::vector<size_t> matchedPersonIndices;
+    std::vector<size_t> matchedTaskIndices;
+    matchedPersonIndices.reserve(optimizedOutputs.size());
+    matchedTaskIndices.reserve(optimizedOutputs.size());
+
+    for (const auto& out : optimizedOutputs)
     {
-        if (match.TaskIndex >= mTasks.size() || match.PersonIndex >= mPeople.size())
+        if (out.PersonId == 0 || out.TaskId == 0)
+        {
+            Printf("[DoDA] Error: Assignment output contains invalid zero ID; strategic state unchanged.\n");
             return false;
-        if (mTasks[match.TaskIndex].Id != match.TaskId || mPeople[match.PersonIndex].Id != match.PersonId)
+        }
+
+        if (!matchedPeople.insert(out.PersonId).second)
+        {
+            Printf("[DoDA] Error: Duplicate person ID %llu in optimization output; strategic state unchanged.\n",
+                static_cast<unsigned long long>(out.PersonId));
             return false;
-        if (mTasks[match.TaskIndex].Status != DoDATaskStatus::Pending)
+        }
+
+        if (!matchedTasks.insert(out.TaskId).second)
+        {
+            Printf("[DoDA] Error: Duplicate task ID %llu in optimization output; strategic state unchanged.\n",
+                static_cast<unsigned long long>(out.TaskId));
             return false;
-        if (mPeople[match.PersonIndex].Status != DoDAPersonStatus::Available)
+        }
+
+        auto candIt = candidateMap.find(std::make_pair(out.PersonId, out.TaskId));
+        if (candIt == candidateMap.end())
+        {
+            Printf("[DoDA] Error: Optimization output (%llu, %llu) not in input candidates; strategic state unchanged.\n",
+                static_cast<unsigned long long>(out.PersonId),
+                static_cast<unsigned long long>(out.TaskId));
             return false;
-        if (mPeople[match.PersonIndex].Skill < mTasks[match.TaskIndex].RequiredSkill)
+        }
+
+        if (out.BaseCost != candIt->second)
+        {
+            Printf("[DoDA] Error: Optimization output BaseCost mismatch; strategic state unchanged.\n");
             return false;
+        }
+
+        size_t personIndex = mPeople.size();
+        for (size_t i = 0; i < mPeople.size(); ++i)
+        {
+            if (mPeople[i].Id == out.PersonId)
+            {
+                personIndex = i;
+                break;
+            }
+        }
+        if (personIndex >= mPeople.size())
+        {
+            Printf("[DoDA] Error: Assigned person ID %llu not found in canonical records; strategic state unchanged.\n",
+                static_cast<unsigned long long>(out.PersonId));
+            return false;
+        }
+
+        size_t taskIndex = mTasks.size();
+        for (size_t i = 0; i < mTasks.size(); ++i)
+        {
+            if (mTasks[i].Id == out.TaskId)
+            {
+                taskIndex = i;
+                break;
+            }
+        }
+        if (taskIndex >= mTasks.size())
+        {
+            Printf("[DoDA] Error: Assigned task ID %llu not found in canonical records; strategic state unchanged.\n",
+                static_cast<unsigned long long>(out.TaskId));
+            return false;
+        }
+
+        const auto& person = mPeople[personIndex];
+        const auto& task = mTasks[taskIndex];
+
+        if (person.Status != DoDAPersonStatus::Available)
+        {
+            Printf("[DoDA] Error: Assigned person ID %llu is not Available; strategic state unchanged.\n",
+                static_cast<unsigned long long>(out.PersonId));
+            return false;
+        }
+
+        if (task.Status != DoDATaskStatus::Pending)
+        {
+            Printf("[DoDA] Error: Assigned task ID %llu is not Pending; strategic state unchanged.\n",
+                static_cast<unsigned long long>(out.TaskId));
+            return false;
+        }
+
+        if (person.Skill < task.RequiredSkill)
+        {
+            Printf("[DoDA] Error: Assigned person ID %llu skill %d below task required skill %d; strategic state unchanged.\n",
+                static_cast<unsigned long long>(out.PersonId), person.Skill, task.RequiredSkill);
+            return false;
+        }
+
+        if (person.Skill < 0 || person.Workload < 0 || task.Priority < 0 || task.RequiredSkill < 0 || task.EstimatedWork < 0)
+        {
+            Printf("[DoDA] Error: Negative person/task attributes in assignment validation; strategic state unchanged.\n");
+            return false;
+        }
+
+        const int64_t expectedRawCost =
+            static_cast<int64_t>(person.Workload) * 10 +
+            static_cast<int64_t>(task.EstimatedWork) -
+            static_cast<int64_t>(person.Skill) * 5;
+
+        const int64_t expectedBaseCost64 = std::max<int64_t>(0, expectedRawCost);
+        if (expectedBaseCost64 > DODA_MAX_BASE_COST)
+        {
+            Printf("[DoDA] Error: Expected BaseCost exceeds maximum allowed base cost; strategic state unchanged.\n");
+            return false;
+        }
+
+        const int expectedBaseCost = static_cast<int>(expectedBaseCost64);
+        if (out.BaseCost != expectedBaseCost)
+        {
+            Printf("[DoDA] Error: Output BaseCost %d differs from recalculation %d; strategic state unchanged.\n",
+                out.BaseCost, expectedBaseCost);
+            return false;
+        }
+
+        matchedPersonIndices.push_back(personIndex);
+        matchedTaskIndices.push_back(taskIndex);
     }
 
-    // Commit assignments
-    for (const auto& match : matches)
+    std::vector<DoDAAssignmentRecord> newAssignments;
+    newAssignments.reserve(optimizedOutputs.size());
+    DoDAAssignmentId nextAssignmentId = mNextAssignmentId;
+
+    for (const auto& out : optimizedOutputs)
     {
-        mTasks[match.TaskIndex].Status = DoDATaskStatus::Assigned;
-        mPeople[match.PersonIndex].Status = DoDAPersonStatus::Assigned;
-
-        DoDAAssignmentRecord rec;
-        rec.Id = mNextAssignmentId++;
-        rec.PersonId = match.PersonId;
-        rec.TaskId = match.TaskId;
-        rec.Cost = match.Cost;
-        mAssignments.push_back(rec);
+        DoDAAssignmentRecord rec{};
+        rec.Id = nextAssignmentId++;
+        rec.PersonId = out.PersonId;
+        rec.TaskId = out.TaskId;
+        rec.Cost = out.BaseCost;
+        newAssignments.push_back(rec);
     }
+
+    for (size_t personIndex : matchedPersonIndices)
+    {
+        mPeople[personIndex].Status = DoDAPersonStatus::Assigned;
+    }
+
+    for (size_t taskIndex : matchedTaskIndices)
+    {
+        mTasks[taskIndex].Status = DoDATaskStatus::Assigned;
+    }
+
+    mNextAssignmentId = nextAssignmentId;
+    mAssignments = std::move(newAssignments);
 
     Printf("[DoDA] RunDeterministicAssignment: Generated and committed %u assignment(s).\n",
-        static_cast<unsigned>(matches.size()));
+        static_cast<unsigned>(mAssignments.size()));
 
     return true;
 }

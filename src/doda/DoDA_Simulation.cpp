@@ -13,6 +13,11 @@ DoDASimulation& DoDASimulation::GetInstance()
     return instance;
 }
 
+bool DoDASimulation::HasPersonnelSnapshotV1State() const
+{
+    return !mPeople.empty() || !mTasks.empty() || !mAssignments.empty() || mStrategicMinutes != 0;
+}
+
 void DoDASimulation::ClearToDefaultState()
 {
     mStrategicMinutes = 0;
@@ -24,9 +29,25 @@ void DoDASimulation::ClearToDefaultState()
     mAssignments.clear();
 }
 
+void DoDASimulation::ResetPersonnelSnapshotAfterLoadFailure()
+{
+    const bool projectionChanged = HasPersonnelSnapshotV1State();
+    ClearToDefaultState();
+
+    if (projectionChanged)
+    {
+        BumpPersonnelSnapshotRevision();
+    }
+}
+
 void DoDASimulation::ClearForNewCampaign()
 {
+    const bool projectionChanged = HasPersonnelSnapshotV1State();
     ClearToDefaultState();
+    if (projectionChanged)
+    {
+        BumpPersonnelSnapshotRevision();
+    }
     Printf("[DoDA] New campaign: strategic state cleared.\n");
 }
 
@@ -119,13 +140,13 @@ void DoDASimulation::Serialize(FSerializer& arc)
     {
         if (!arc.BeginObject("doda"))
         {
-            ClearToDefaultState();
+            ResetPersonnelSnapshotAfterLoadFailure();
             return;
         }
 
         if (!arc.HasKey("schema_version"))
         {
-            ClearToDefaultState();
+            ResetPersonnelSnapshotAfterLoadFailure();
             Printf("[DoDA] Error: Missing schema_version in savegame; reset to default state.\n");
             arc.EndObject();
             return;
@@ -136,7 +157,7 @@ void DoDASimulation::Serialize(FSerializer& arc)
 
         if (schemaVersion < 1 || schemaVersion > DODA_SAVE_SCHEMA_VERSION)
         {
-            ClearToDefaultState();
+            ResetPersonnelSnapshotAfterLoadFailure();
             Printf("[DoDA] Error: Unsupported save schema version %d (max supported %d); reset to default state.\n",
                 schemaVersion, DODA_SAVE_SCHEMA_VERSION);
             arc.EndObject();
@@ -147,7 +168,7 @@ void DoDASimulation::Serialize(FSerializer& arc)
         {
             if (!arc.HasKey("strategic_minutes"))
             {
-                ClearToDefaultState();
+                ResetPersonnelSnapshotAfterLoadFailure();
                 Printf("[DoDA] Error: Schema 1 missing strategic_minutes; reset to default state.\n");
                 arc.EndObject();
                 return;
@@ -157,8 +178,13 @@ void DoDASimulation::Serialize(FSerializer& arc)
             arc("strategic_minutes", tempMinutes);
             arc.EndObject();
 
+            const bool projectionChanged = HasPersonnelSnapshotV1State();
             ClearToDefaultState();
             mStrategicMinutes = tempMinutes;
+            if (projectionChanged || tempMinutes != 0)
+            {
+                BumpPersonnelSnapshotRevision();
+            }
             return;
         }
 
@@ -172,7 +198,7 @@ void DoDASimulation::Serialize(FSerializer& arc)
                 !arc.HasKey("tasks") ||
                 !arc.HasKey("assignments"))
             {
-                ClearToDefaultState();
+                ResetPersonnelSnapshotAfterLoadFailure();
                 Printf("[DoDA] Error: Schema 2 missing required root fields; reset to default state.\n");
                 arc.EndObject();
                 return;
@@ -373,14 +399,14 @@ void DoDASimulation::Serialize(FSerializer& arc)
 
             if (!parseOk)
             {
-                ClearToDefaultState();
+                ResetPersonnelSnapshotAfterLoadFailure();
                 Printf("[DoDA] Error: Schema 2 array parsing failed or exceeded limits; reset to default state.\n");
                 return;
             }
 
             if (tempNextPersonId < 1 || tempNextTaskId < 1 || tempNextAssignmentId < 1)
             {
-                ClearToDefaultState();
+                ResetPersonnelSnapshotAfterLoadFailure();
                 Printf("[DoDA] Error: Schema 2 counters must be >= 1; reset to default state.\n");
                 return;
             }
@@ -390,33 +416,33 @@ void DoDASimulation::Serialize(FSerializer& arc)
             {
                 if (p.Id == 0 || p.Id >= tempNextPersonId)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 person ID %llu invalid or exceeds counter %llu; reset to default state.\n",
                         static_cast<unsigned long long>(p.Id), static_cast<unsigned long long>(tempNextPersonId));
                     return;
                 }
                 if (!personIds.insert(p.Id).second)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 duplicate person ID %llu; reset to default state.\n",
                         static_cast<unsigned long long>(p.Id));
                     return;
                 }
                 if (p.Name.IsEmpty() || static_cast<size_t>(p.Name.Len()) > DODA_MAX_PERSON_NAME_LENGTH)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 person name empty or exceeds max length; reset to default state.\n");
                     return;
                 }
                 if (p.Skill < 0 || p.Workload < 0)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 person skill/workload negative; reset to default state.\n");
                     return;
                 }
                 if (static_cast<uint8_t>(p.Status) > static_cast<uint8_t>(DoDAPersonStatus::Unavailable))
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 person status out of enum range; reset to default state.\n");
                     return;
                 }
@@ -427,33 +453,33 @@ void DoDASimulation::Serialize(FSerializer& arc)
             {
                 if (t.Id == 0 || t.Id >= tempNextTaskId)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 task ID %llu invalid or exceeds counter %llu; reset to default state.\n",
                         static_cast<unsigned long long>(t.Id), static_cast<unsigned long long>(tempNextTaskId));
                     return;
                 }
                 if (!taskIds.insert(t.Id).second)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 duplicate task ID %llu; reset to default state.\n",
                         static_cast<unsigned long long>(t.Id));
                     return;
                 }
                 if (t.Title.IsEmpty() || static_cast<size_t>(t.Title.Len()) > DODA_MAX_TASK_TITLE_LENGTH)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 task title empty or exceeds max length; reset to default state.\n");
                     return;
                 }
                 if (t.Priority < 0 || t.RequiredSkill < 0 || t.EstimatedWork < 0)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 task priority/skill/work negative; reset to default state.\n");
                     return;
                 }
                 if (static_cast<uint8_t>(t.Status) > static_cast<uint8_t>(DoDATaskStatus::Failed))
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 task status out of enum range; reset to default state.\n");
                     return;
                 }
@@ -467,48 +493,48 @@ void DoDASimulation::Serialize(FSerializer& arc)
             {
                 if (a.Id == 0 || a.Id >= tempNextAssignmentId)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 assignment ID %llu invalid or exceeds counter %llu; reset to default state.\n",
                         static_cast<unsigned long long>(a.Id), static_cast<unsigned long long>(tempNextAssignmentId));
                     return;
                 }
                 if (!assignmentIds.insert(a.Id).second)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 duplicate assignment ID %llu; reset to default state.\n",
                         static_cast<unsigned long long>(a.Id));
                     return;
                 }
                 if (a.Cost < 0)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 assignment cost negative; reset to default state.\n");
                     return;
                 }
                 if (personIds.find(a.PersonId) == personIds.end())
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 assignment references non-existent person ID %llu; reset to default state.\n",
                         static_cast<unsigned long long>(a.PersonId));
                     return;
                 }
                 if (taskIds.find(a.TaskId) == taskIds.end())
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 assignment references non-existent task ID %llu; reset to default state.\n",
                         static_cast<unsigned long long>(a.TaskId));
                     return;
                 }
                 if (!assignedPersonIds.insert(a.PersonId).second)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 person ID %llu appears in multiple assignments; reset to default state.\n",
                         static_cast<unsigned long long>(a.PersonId));
                     return;
                 }
                 if (!assignedTaskIds.insert(a.TaskId).second)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 task ID %llu appears in multiple assignments; reset to default state.\n",
                         static_cast<unsigned long long>(a.TaskId));
                     return;
@@ -520,14 +546,14 @@ void DoDASimulation::Serialize(FSerializer& arc)
                 bool isAssignedInRecords = (assignedPersonIds.count(p.Id) > 0);
                 if (isAssignedInRecords && p.Status != DoDAPersonStatus::Assigned)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 person ID %llu assigned in records but status is not Assigned; reset to default state.\n",
                         static_cast<unsigned long long>(p.Id));
                     return;
                 }
                 if (!isAssignedInRecords && p.Status == DoDAPersonStatus::Assigned)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 person ID %llu status is Assigned but no matching assignment record; reset to default state.\n",
                         static_cast<unsigned long long>(p.Id));
                     return;
@@ -539,14 +565,14 @@ void DoDASimulation::Serialize(FSerializer& arc)
                 bool isAssignedInRecords = (assignedTaskIds.count(t.Id) > 0);
                 if (isAssignedInRecords && t.Status != DoDATaskStatus::Assigned)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 task ID %llu assigned in records but status is not Assigned; reset to default state.\n",
                         static_cast<unsigned long long>(t.Id));
                     return;
                 }
                 if (!isAssignedInRecords && t.Status == DoDATaskStatus::Assigned)
                 {
-                    ClearToDefaultState();
+                    ResetPersonnelSnapshotAfterLoadFailure();
                     Printf("[DoDA] Error: Schema 2 task ID %llu status is Assigned but no matching assignment record; reset to default state.\n",
                         static_cast<unsigned long long>(t.Id));
                     return;
@@ -560,6 +586,8 @@ void DoDASimulation::Serialize(FSerializer& arc)
             mPeople = std::move(tempPeople);
             mTasks = std::move(tempTasks);
             mAssignments = std::move(tempAssignments);
+
+            BumpPersonnelSnapshotRevision();
 
             Printf("[DoDA] Restore: Successfully loaded Schema 2 state (%u people, %u tasks, %u assignments, %llu minutes).\n",
                 static_cast<unsigned>(mPeople.size()),
@@ -581,6 +609,8 @@ bool DoDASimulation::ResetDebugFixture()
     mTasks.push_back({ mNextTaskId++, "Scout Perimeter", 10, 2, 20, DoDATaskStatus::Pending });
     mTasks.push_back({ mNextTaskId++, "Repair Generator", 20, 4, 30, DoDATaskStatus::Pending });
     mTasks.push_back({ mNextTaskId++, "Decrypt Archive", 15, 10, 40, DoDATaskStatus::Pending });
+
+    BumpPersonnelSnapshotRevision();
 
     Printf("[DoDA] ResetDebugFixture: Initialized fixture with %u people and %u tasks.\n",
         static_cast<unsigned>(mPeople.size()),
@@ -852,6 +882,8 @@ bool DoDASimulation::RunDeterministicAssignment()
     mNextAssignmentId = nextAssignmentId;
     mAssignments = std::move(newAssignments);
 
+    BumpPersonnelSnapshotRevision();
+
     Printf("[DoDA] RunDeterministicAssignment: Generated and committed %u assignment(s).\n",
         static_cast<unsigned>(mAssignments.size()));
 
@@ -891,4 +923,136 @@ FString DoDASimulation::GetAssignmentDebugText(int index) const
         static_cast<unsigned long long>(rec.TaskId),
         rec.Cost);
     return text;
+}
+
+FString DoDASimulation::FormatUInt64Decimal(uint64_t value)
+{
+    FString text;
+    text.Format("%llu", static_cast<unsigned long long>(value));
+    return text;
+}
+
+void DoDASimulation::BumpPersonnelSnapshotRevision()
+{
+    ++mPersonnelSnapshotRevision;
+    if (mPersonnelSnapshotRevision == 0)
+    {
+        mPersonnelSnapshotRevision = 1;
+    }
+}
+
+FString DoDASimulation::GetPersonnelSnapshotRevisionText() const
+{
+    return FormatUInt64Decimal(mPersonnelSnapshotRevision);
+}
+
+FString DoDASimulation::GetPersonnelSnapshotStrategicMinutesText() const
+{
+    return FormatUInt64Decimal(mStrategicMinutes);
+}
+
+FString DoDASimulation::GetPersonnelPersonIdText(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mPeople.size())
+    {
+        return "";
+    }
+    return FormatUInt64Decimal(mPeople[index].Id);
+}
+
+FString DoDASimulation::GetPersonnelDisplayName(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mPeople.size())
+    {
+        return "";
+    }
+    return mPeople[index].Name;
+}
+
+int DoDASimulation::GetPersonnelStatus(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mPeople.size())
+    {
+        return 2;
+    }
+    return static_cast<int>(mPeople[index].Status);
+}
+
+int DoDASimulation::GetPersonnelSkill(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mPeople.size())
+    {
+        return 0;
+    }
+    return mPeople[index].Skill;
+}
+
+int DoDASimulation::GetPersonnelWorkload(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mPeople.size())
+    {
+        return 0;
+    }
+    return mPeople[index].Workload;
+}
+
+FString DoDASimulation::GetPersonnelCurrentAssignmentIdText(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mPeople.size())
+    {
+        return "";
+    }
+
+    const DoDAPersonId personId = mPeople[index].Id;
+    for (const auto& assignment : mAssignments)
+    {
+        if (assignment.PersonId == personId)
+        {
+            return FormatUInt64Decimal(assignment.Id);
+        }
+    }
+    return "";
+}
+
+FString DoDASimulation::GetPersonnelCurrentTaskIdText(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mPeople.size())
+    {
+        return "";
+    }
+
+    const DoDAPersonId personId = mPeople[index].Id;
+    for (const auto& assignment : mAssignments)
+    {
+        if (assignment.PersonId == personId)
+        {
+            return FormatUInt64Decimal(assignment.TaskId);
+        }
+    }
+    return "";
+}
+
+FString DoDASimulation::GetPersonnelCurrentTaskTitle(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mPeople.size())
+    {
+        return "";
+    }
+
+    const DoDAPersonId personId = mPeople[index].Id;
+    for (const auto& assignment : mAssignments)
+    {
+        if (assignment.PersonId == personId)
+        {
+            for (const auto& task : mTasks)
+            {
+                if (task.Id == assignment.TaskId)
+                {
+                    return task.Title;
+                }
+            }
+            return "";
+        }
+    }
+    return "";
 }

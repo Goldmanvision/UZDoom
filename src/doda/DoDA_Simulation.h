@@ -27,12 +27,33 @@ public:
     size_t GetAssignmentCount() const { return mAssignments.size(); }
     FString GetAssignmentDebugText(int index) const;
 
+    // Personnel Snapshot V1 Query API
+    int GetPersonnelSnapshotApiVersion() const { return 1; }
+    FString GetPersonnelSnapshotRevisionText() const;
+    FString GetPersonnelSnapshotStrategicMinutesText() const;
+    int GetPersonnelSnapshotCount() const { return static_cast<int>(mPeople.size()); }
+
+    FString GetPersonnelPersonIdText(int index) const;
+    FString GetPersonnelDisplayName(int index) const;
+    int GetPersonnelStatus(int index) const;
+    int GetPersonnelSkill(int index) const;
+    int GetPersonnelWorkload(int index) const;
+
+    FString GetPersonnelCurrentAssignmentIdText(int index) const;
+    FString GetPersonnelCurrentTaskIdText(int index) const;
+    FString GetPersonnelCurrentTaskTitle(int index) const;
+
 private:
     DoDASimulation() = default;
 
+    static FString FormatUInt64Decimal(uint64_t value);
+    void BumpPersonnelSnapshotRevision();
+    bool HasPersonnelSnapshotV1State() const;
+    void ResetPersonnelSnapshotAfterLoadFailure();
     void ClearToDefaultState();
 
     uint64_t mStrategicMinutes = 0;
+    uint64_t mPersonnelSnapshotRevision = 1;
     DoDAPersonId mNextPersonId = 1;
     DoDATaskId mNextTaskId = 1;
     DoDAAssignmentId mNextAssignmentId = 1;

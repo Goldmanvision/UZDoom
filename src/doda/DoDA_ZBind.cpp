@@ -65,3 +65,94 @@ DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentDebugText)
     FString text = DoDASimulation::GetInstance().GetAssignmentDebugText(index);
     ACTION_RETURN_STRING(text);
 }
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelSnapshotApiVersion)
+{
+    PARAM_PROLOGUE;
+    ACTION_RETURN_INT(DoDASimulation::GetInstance().GetPersonnelSnapshotApiVersion());
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelSnapshotRevisionText)
+{
+    PARAM_PROLOGUE;
+    FString text = DoDASimulation::GetInstance().GetPersonnelSnapshotRevisionText();
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelSnapshotStrategicMinutesText)
+{
+    PARAM_PROLOGUE;
+    FString text = DoDASimulation::GetInstance().GetPersonnelSnapshotStrategicMinutesText();
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelSnapshotCount)
+{
+    PARAM_PROLOGUE;
+    int count = DoDASimulation::GetInstance().GetPersonnelSnapshotCount();
+    ACTION_RETURN_INT(count);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelPersonIdText)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetPersonnelPersonIdText(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelDisplayName)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetPersonnelDisplayName(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelStatus)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    int status = DoDASimulation::GetInstance().GetPersonnelStatus(index);
+    ACTION_RETURN_INT(status);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelSkill)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    int skill = DoDASimulation::GetInstance().GetPersonnelSkill(index);
+    ACTION_RETURN_INT(skill);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelWorkload)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    int workload = DoDASimulation::GetInstance().GetPersonnelWorkload(index);
+    ACTION_RETURN_INT(workload);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelCurrentAssignmentIdText)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetPersonnelCurrentAssignmentIdText(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelCurrentTaskIdText)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetPersonnelCurrentTaskIdText(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelCurrentTaskTitle)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetPersonnelCurrentTaskTitle(index);
+    ACTION_RETURN_STRING(text);
+}

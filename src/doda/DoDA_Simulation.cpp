@@ -118,9 +118,12 @@ void DoDASimulation::Serialize(FSerializer& arc)
                 {
                     if (arc.BeginObject(nullptr))
                     {
+                        // NOTE: task.LocationId is deliberately NOT serialized in this POC.
+                        // Writing location_id without also serializing mLocations/mNextLocationId
+                        // would persist ids that reference a location list rebuilt only by the
+                        // hardcoded fallback below. Deferred to the strategic-time/persistence batch.
                         DoDATaskId id = task.Id;
                         FString title = task.Title;
-                        DoDALocationId locId = task.LocationId;
                         int priority = task.Priority;
                         int requiredSkill = task.RequiredSkill;
                         int estimatedWork = task.EstimatedWork;
@@ -129,7 +132,6 @@ void DoDASimulation::Serialize(FSerializer& arc)
 
                         arc("id", id)
                            ("title", title)
-                           ("location_id", locId)
                            ("priority", priority)
                            ("required_skill", requiredSkill)
                            ("estimated_work", estimatedWork)
@@ -520,6 +522,13 @@ void DoDASimulation::Serialize(FSerializer& arc)
                     Printf("[DoDA] Error: Schema 2 task status out of enum range; reset to default state.\n");
                     return;
                 }
+                if (t.Progress < 0 || t.Progress > 100)
+                {
+                    ResetPersonnelSnapshotAfterLoadFailure();
+                    Printf("[DoDA] Error: Schema 2 task progress %d out of range 0-100; reset to default state.\n",
+                        t.Progress);
+                    return;
+                }
             }
 
             std::set<DoDAAssignmentId> assignmentIds;
@@ -569,13 +578,10 @@ void DoDASimulation::Serialize(FSerializer& arc)
                         static_cast<unsigned long long>(a.PersonId));
                     return;
                 }
-                if (!assignedTaskIds.insert(a.TaskId).second)
-                {
-                    ResetPersonnelSnapshotAfterLoadFailure();
-                    Printf("[DoDA] Error: Schema 2 task ID %llu appears in multiple assignments; reset to default state.\n",
-                        static_cast<unsigned long long>(a.TaskId));
-                    return;
-                }
+                // NOTE: a task may legitimately carry several assignments (multiple personnel
+                // working one task); only the per-person uniqueness above is an invariant.
+                // assignedTaskIds is still collected for the task status cross-link check below.
+                assignedTaskIds.insert(a.TaskId);
             }
 
             for (const auto& p : tempPeople)
@@ -671,7 +677,7 @@ bool DoDASimulation::AdvanceStrategicMinutes(int deltaMinutes)
 
     for (auto& task : mTasks)
     {
-        if (task.Status == DoDATaskStatus::Assigned || task.Status == DoDATaskStatus::Pending)
+        if (task.Status == DoDATaskStatus::Assigned)
         {
             if (task.Progress < 100)
             {

@@ -6,6 +6,7 @@
 using DoDAPersonId = uint64_t;
 using DoDATaskId = uint64_t;
 using DoDAAssignmentId = uint64_t;
+using DoDALocationId = uint64_t;
 
 enum class DoDAPersonStatus : uint8_t
 {
@@ -31,14 +32,22 @@ struct DoDAPersonRecord
     DoDAPersonStatus Status;
 };
 
+struct DoDALocationRecord
+{
+    DoDALocationId Id;
+    FString Name;
+};
+
 struct DoDATaskRecord
 {
     DoDATaskId Id;
     FString Title;
+    DoDALocationId LocationId;
     int Priority;
     int RequiredSkill;
     int EstimatedWork;
     DoDATaskStatus Status;
+    int Progress;
 };
 
 struct DoDAAssignmentRecord

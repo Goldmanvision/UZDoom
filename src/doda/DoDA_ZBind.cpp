@@ -156,3 +156,66 @@ DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelCurrentTaskTitle)
     FString text = DoDASimulation::GetInstance().GetPersonnelCurrentTaskTitle(index);
     ACTION_RETURN_STRING(text);
 }
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetLocationCount)
+{
+    PARAM_PROLOGUE;
+    int count = DoDASimulation::GetInstance().GetLocationCount();
+    ACTION_RETURN_INT(count);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetLocationIdText)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetLocationIdText(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetLocationDisplayName)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetLocationDisplayName(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetTaskIdText)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetTaskIdText(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetTaskTitle)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetTaskTitle(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetTaskStatus)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    int status = DoDASimulation::GetInstance().GetTaskStatus(index);
+    ACTION_RETURN_INT(status);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetTaskProgress)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    int progress = DoDASimulation::GetInstance().GetTaskProgress(index);
+    ACTION_RETURN_INT(progress);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetTaskLocationIdText)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetTaskLocationIdText(index);
+    ACTION_RETURN_STRING(text);
+}

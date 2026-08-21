@@ -15,7 +15,7 @@ DoDASimulation& DoDASimulation::GetInstance()
 
 bool DoDASimulation::HasPersonnelSnapshotV1State() const
 {
-    return !mPeople.empty() || !mTasks.empty() || !mAssignments.empty() || mStrategicMinutes != 0;
+    return !mPeople.empty() || !mTasks.empty() || !mAssignments.empty() || !mLocations.empty() || mStrategicMinutes != 0;
 }
 
 void DoDASimulation::ClearToDefaultState()
@@ -24,7 +24,9 @@ void DoDASimulation::ClearToDefaultState()
     mNextPersonId = 1;
     mNextTaskId = 1;
     mNextAssignmentId = 1;
+    mNextLocationId = 1;
     mPeople.clear();
+    mLocations.clear();
     mTasks.clear();
     mAssignments.clear();
 }
@@ -40,23 +42,38 @@ void DoDASimulation::ResetPersonnelSnapshotAfterLoadFailure()
     }
 }
 
+void DoDASimulation::InitializeDefaultFixture()
+{
+    ClearToDefaultState();
+
+    mLocations.push_back({ mNextLocationId++, "Morrow Point Waterworks" });
+
+    mPeople.push_back({ mNextPersonId++, "Ruth M. Green", 5, 0, DoDAPersonStatus::Available });
+    mPeople.push_back({ mNextPersonId++, "Michelle C. Thomas", 7, 1, DoDAPersonStatus::Assigned });
+    mPeople.push_back({ mNextPersonId++, "Brian C. Gordon", 8, 1, DoDAPersonStatus::Assigned });
+    mPeople.push_back({ mNextPersonId++, "Leonard M. Martin", 6, 0, DoDAPersonStatus::Available });
+    mPeople.push_back({ mNextPersonId++, "Harold M. Beltz", 5, 0, DoDAPersonStatus::Available });
+
+    mTasks.push_back({ mNextTaskId++, "Survey anomalous emissions", 1, 10, 5, 40, DoDATaskStatus::Assigned, 0 });
+
+    mAssignments.push_back({ mNextAssignmentId++, 2, 1, 0 });
+    mAssignments.push_back({ mNextAssignmentId++, 3, 1, 0 });
+}
+
 void DoDASimulation::ClearForNewCampaign()
 {
     const bool projectionChanged = HasPersonnelSnapshotV1State();
-    ClearToDefaultState();
-
-    mPeople.push_back({ mNextPersonId++, "Ruth M. Green", 5, 0, DoDAPersonStatus::Available });
-    mPeople.push_back({ mNextPersonId++, "Michelle C. Thomas", 7, 0, DoDAPersonStatus::Available });
-    mPeople.push_back({ mNextPersonId++, "Brian C. Gordon", 8, 0, DoDAPersonStatus::Available });
-    mPeople.push_back({ mNextPersonId++, "Leonard M. Martin", 6, 0, DoDAPersonStatus::Available });
-    mPeople.push_back({ mNextPersonId++, "Harold M. Beltz", 5, 0, DoDAPersonStatus::Available });
+    InitializeDefaultFixture();
 
     if (projectionChanged)
     {
         BumpPersonnelSnapshotRevision();
     }
-    Printf("[DoDA] New campaign: strategic state initialized with %u default personnel.\n",
-        static_cast<unsigned>(mPeople.size()));
+    Printf("[DoDA] New campaign: strategic state initialized with %u personnel, %u location(s), %u task(s), %u assignment(s).\n",
+        static_cast<unsigned>(mPeople.size()),
+        static_cast<unsigned>(mLocations.size()),
+        static_cast<unsigned>(mTasks.size()),
+        static_cast<unsigned>(mAssignments.size()));
 }
 
 void DoDASimulation::Serialize(FSerializer& arc)
@@ -103,17 +120,21 @@ void DoDASimulation::Serialize(FSerializer& arc)
                     {
                         DoDATaskId id = task.Id;
                         FString title = task.Title;
+                        DoDALocationId locId = task.LocationId;
                         int priority = task.Priority;
                         int requiredSkill = task.RequiredSkill;
                         int estimatedWork = task.EstimatedWork;
                         int rawStatus = static_cast<int>(task.Status);
+                        int progress = task.Progress;
 
                         arc("id", id)
                            ("title", title)
+                           ("location_id", locId)
                            ("priority", priority)
                            ("required_skill", requiredSkill)
                            ("estimated_work", estimatedWork)
-                           ("status", rawStatus);
+                           ("status", rawStatus)
+                           ("progress", progress);
                         arc.EndObject();
                     }
                 }
@@ -316,10 +337,12 @@ void DoDASimulation::Serialize(FSerializer& arc)
 
                         DoDATaskId id = 0;
                         FString title;
+                        DoDALocationId locId = 1;
                         int priority = 0;
                         int requiredSkill = 0;
                         int estimatedWork = 0;
                         int rawStatus = 0;
+                        int progress = 0;
 
                         arc("id", id)
                            ("title", title)
@@ -327,6 +350,10 @@ void DoDASimulation::Serialize(FSerializer& arc)
                            ("required_skill", requiredSkill)
                            ("estimated_work", estimatedWork)
                            ("status", rawStatus);
+                        if (arc.HasKey("location_id"))
+                            arc("location_id", locId);
+                        if (arc.HasKey("progress"))
+                            arc("progress", progress);
                         arc.EndObject();
 
                         if (rawStatus < 0 || rawStatus > static_cast<int>(DoDATaskStatus::Failed))
@@ -338,10 +365,12 @@ void DoDASimulation::Serialize(FSerializer& arc)
                         DoDATaskRecord task{};
                         task.Id = id;
                         task.Title = title;
+                        task.LocationId = locId;
                         task.Priority = priority;
                         task.RequiredSkill = requiredSkill;
                         task.EstimatedWork = estimatedWork;
                         task.Status = static_cast<DoDATaskStatus>(rawStatus);
+                        task.Progress = progress;
                         tempTasks.push_back(task);
                     }
                 }
@@ -595,6 +624,12 @@ void DoDASimulation::Serialize(FSerializer& arc)
             mTasks = std::move(tempTasks);
             mAssignments = std::move(tempAssignments);
 
+            if (mLocations.empty())
+            {
+                mLocations.push_back({ 1, "Morrow Point Waterworks" });
+                mNextLocationId = 2;
+            }
+
             BumpPersonnelSnapshotRevision();
 
             Printf("[DoDA] Restore: Successfully loaded Schema 2 state (%u people, %u tasks, %u assignments, %llu minutes).\n",
@@ -608,21 +643,14 @@ void DoDASimulation::Serialize(FSerializer& arc)
 
 bool DoDASimulation::ResetDebugFixture()
 {
-    ClearToDefaultState();
-
-    mPeople.push_back({ mNextPersonId++, "Alice", 4, 1, DoDAPersonStatus::Available });
-    mPeople.push_back({ mNextPersonId++, "Bob", 3, 0, DoDAPersonStatus::Available });
-    mPeople.push_back({ mNextPersonId++, "Charlie", 8, 2, DoDAPersonStatus::Available });
-
-    mTasks.push_back({ mNextTaskId++, "Scout Perimeter", 10, 2, 20, DoDATaskStatus::Pending });
-    mTasks.push_back({ mNextTaskId++, "Repair Generator", 20, 4, 30, DoDATaskStatus::Pending });
-    mTasks.push_back({ mNextTaskId++, "Decrypt Archive", 15, 10, 40, DoDATaskStatus::Pending });
-
+    InitializeDefaultFixture();
     BumpPersonnelSnapshotRevision();
 
-    Printf("[DoDA] ResetDebugFixture: Initialized fixture with %u people and %u tasks.\n",
+    Printf("[DoDA] ResetDebugFixture: Initialized fixture with %u personnel, %u location(s), %u task(s), %u assignment(s).\n",
         static_cast<unsigned>(mPeople.size()),
-        static_cast<unsigned>(mTasks.size()));
+        static_cast<unsigned>(mLocations.size()),
+        static_cast<unsigned>(mTasks.size()),
+        static_cast<unsigned>(mAssignments.size()));
 
     return true;
 }
@@ -640,6 +668,56 @@ bool DoDASimulation::AdvanceStrategicMinutes(int deltaMinutes)
     }
 
     mStrategicMinutes += static_cast<uint64_t>(deltaMinutes);
+
+    for (auto& task : mTasks)
+    {
+        if (task.Status == DoDATaskStatus::Assigned || task.Status == DoDATaskStatus::Pending)
+        {
+            if (task.Progress < 100)
+            {
+                int addedProgress = (deltaMinutes * 25) / 60;
+                task.Progress += addedProgress;
+                if (task.Progress >= 100)
+                {
+                    task.Progress = 100;
+                    task.Status = DoDATaskStatus::Completed;
+
+                    std::set<DoDAPersonId> completedPersonIds;
+                    for (const auto& a : mAssignments)
+                    {
+                        if (a.TaskId == task.Id)
+                        {
+                            completedPersonIds.insert(a.PersonId);
+                        }
+                    }
+
+                    for (auto& p : mPeople)
+                    {
+                        if (completedPersonIds.find(p.Id) != completedPersonIds.end())
+                        {
+                            p.Status = DoDAPersonStatus::Available;
+                            p.Workload = 0;
+                        }
+                    }
+
+                    mAssignments.erase(
+                        std::remove_if(mAssignments.begin(), mAssignments.end(),
+                            [&task](const DoDAAssignmentRecord& a) {
+                                return a.TaskId == task.Id;
+                            }),
+                        mAssignments.end()
+                    );
+
+                    Printf("[DoDA] Task %llu ('%s') reached 100%% progress -> Completed. %u personnel returned to Available.\n",
+                        static_cast<unsigned long long>(task.Id),
+                        task.Title.GetChars(),
+                        static_cast<unsigned>(completedPersonIds.size()));
+                }
+            }
+        }
+    }
+
+    BumpPersonnelSnapshotRevision();
 
     Printf("[DoDA] AdvanceStrategicMinutes: Advanced by %d minute(s), total %llu minute(s).\n",
         deltaMinutes,
@@ -1063,4 +1141,67 @@ FString DoDASimulation::GetPersonnelCurrentTaskTitle(int index) const
         }
     }
     return "";
+}
+
+FString DoDASimulation::GetLocationIdText(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mLocations.size())
+    {
+        return "";
+    }
+    return FormatUInt64Decimal(mLocations[index].Id);
+}
+
+FString DoDASimulation::GetLocationDisplayName(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mLocations.size())
+    {
+        return "";
+    }
+    return mLocations[index].Name;
+}
+
+FString DoDASimulation::GetTaskIdText(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mTasks.size())
+    {
+        return "";
+    }
+    return FormatUInt64Decimal(mTasks[index].Id);
+}
+
+FString DoDASimulation::GetTaskTitle(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mTasks.size())
+    {
+        return "";
+    }
+    return mTasks[index].Title;
+}
+
+int DoDASimulation::GetTaskStatus(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mTasks.size())
+    {
+        return 0;
+    }
+    return static_cast<int>(mTasks[index].Status);
+}
+
+int DoDASimulation::GetTaskProgress(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mTasks.size())
+    {
+        return 0;
+    }
+    return mTasks[index].Progress;
+}
+
+FString DoDASimulation::GetTaskLocationIdText(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mTasks.size())
+    {
+        return "";
+    }
+    return FormatUInt64Decimal(mTasks[index].LocationId);
 }

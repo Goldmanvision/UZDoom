@@ -43,6 +43,17 @@ public:
     FString GetPersonnelCurrentTaskIdText(int index) const;
     FString GetPersonnelCurrentTaskTitle(int index) const;
 
+    // Location & Task Queries
+    int GetLocationCount() const { return static_cast<int>(mLocations.size()); }
+    FString GetLocationIdText(int index) const;
+    FString GetLocationDisplayName(int index) const;
+
+    FString GetTaskIdText(int index) const;
+    FString GetTaskTitle(int index) const;
+    int GetTaskStatus(int index) const;
+    int GetTaskProgress(int index) const;
+    FString GetTaskLocationIdText(int index) const;
+
 private:
     DoDASimulation() = default;
 
@@ -51,14 +62,17 @@ private:
     bool HasPersonnelSnapshotV1State() const;
     void ResetPersonnelSnapshotAfterLoadFailure();
     void ClearToDefaultState();
+    void InitializeDefaultFixture();
 
     uint64_t mStrategicMinutes = 0;
     uint64_t mPersonnelSnapshotRevision = 1;
     DoDAPersonId mNextPersonId = 1;
     DoDATaskId mNextTaskId = 1;
     DoDAAssignmentId mNextAssignmentId = 1;
+    DoDALocationId mNextLocationId = 1;
 
     std::vector<DoDAPersonRecord> mPeople;
+    std::vector<DoDALocationRecord> mLocations;
     std::vector<DoDATaskRecord> mTasks;
     std::vector<DoDAAssignmentRecord> mAssignments;
 };

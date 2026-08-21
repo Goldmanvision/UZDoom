@@ -44,11 +44,19 @@ void DoDASimulation::ClearForNewCampaign()
 {
     const bool projectionChanged = HasPersonnelSnapshotV1State();
     ClearToDefaultState();
+
+    mPeople.push_back({ mNextPersonId++, "Ruth M. Green", 5, 0, DoDAPersonStatus::Available });
+    mPeople.push_back({ mNextPersonId++, "Michelle C. Thomas", 7, 0, DoDAPersonStatus::Available });
+    mPeople.push_back({ mNextPersonId++, "Brian C. Gordon", 8, 0, DoDAPersonStatus::Available });
+    mPeople.push_back({ mNextPersonId++, "Leonard M. Martin", 6, 0, DoDAPersonStatus::Available });
+    mPeople.push_back({ mNextPersonId++, "Harold M. Beltz", 5, 0, DoDAPersonStatus::Available });
+
     if (projectionChanged)
     {
         BumpPersonnelSnapshotRevision();
     }
-    Printf("[DoDA] New campaign: strategic state cleared.\n");
+    Printf("[DoDA] New campaign: strategic state initialized with %u default personnel.\n",
+        static_cast<unsigned>(mPeople.size()));
 }
 
 void DoDASimulation::Serialize(FSerializer& arc)

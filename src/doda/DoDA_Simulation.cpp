@@ -100,12 +100,14 @@ void DoDASimulation::Serialize(FSerializer& arc)
                         int skill = person.Skill;
                         int workload = person.Workload;
                         int rawStatus = static_cast<int>(person.Status);
+                        int fatigue = person.Fatigue;
 
                         arc("id", id)
                            ("name", name)
                            ("skill", skill)
                            ("workload", workload)
-                           ("status", rawStatus);
+                           ("status", rawStatus)
+                           ("fatigue", fatigue);
                         arc.EndObject();
                     }
                 }
@@ -219,7 +221,7 @@ void DoDASimulation::Serialize(FSerializer& arc)
             return;
         }
 
-        if (schemaVersion == 2)
+        if (schemaVersion == 2 || schemaVersion == 3)
         {
             if (!arc.HasKey("strategic_minutes") ||
                 !arc.HasKey("next_person_id") ||
@@ -230,7 +232,7 @@ void DoDASimulation::Serialize(FSerializer& arc)
                 !arc.HasKey("assignments"))
             {
                 ResetPersonnelSnapshotAfterLoadFailure();
-                Printf("[DoDA] Error: Schema 2 missing required root fields; reset to default state.\n");
+                Printf("[DoDA] Error: Schema %d missing required root fields; reset to default state.\n", schemaVersion);
                 arc.EndObject();
                 return;
             }
@@ -269,7 +271,8 @@ void DoDASimulation::Serialize(FSerializer& arc)
                         }
 
                         if (!arc.HasKey("id") || !arc.HasKey("name") || !arc.HasKey("skill") ||
-                            !arc.HasKey("workload") || !arc.HasKey("status"))
+                            !arc.HasKey("workload") || !arc.HasKey("status") ||
+                            (schemaVersion == 3 && !arc.HasKey("fatigue")))
                         {
                             parseOk = false;
                             arc.EndObject();
@@ -281,12 +284,17 @@ void DoDASimulation::Serialize(FSerializer& arc)
                         int skill = 0;
                         int workload = 0;
                         int rawStatus = 0;
+                        int fatigue = 0;
 
                         arc("id", id)
                            ("name", name)
                            ("skill", skill)
                            ("workload", workload)
                            ("status", rawStatus);
+                        if (schemaVersion == 3)
+                        {
+                            arc("fatigue", fatigue);
+                        }
                         arc.EndObject();
 
                         if (rawStatus < 0 || rawStatus > static_cast<int>(DoDAPersonStatus::Unavailable))
@@ -301,6 +309,7 @@ void DoDASimulation::Serialize(FSerializer& arc)
                         person.Skill = skill;
                         person.Workload = workload;
                         person.Status = static_cast<DoDAPersonStatus>(rawStatus);
+                        person.Fatigue = (schemaVersion == 3) ? fatigue : 0;
                         tempPeople.push_back(person);
                     }
                 }
@@ -638,7 +647,8 @@ void DoDASimulation::Serialize(FSerializer& arc)
 
             BumpPersonnelSnapshotRevision();
 
-            Printf("[DoDA] Restore: Successfully loaded Schema 2 state (%u people, %u tasks, %u assignments, %llu minutes).\n",
+            Printf("[DoDA] Restore: Successfully loaded Schema %d state (%u people, %u tasks, %u assignments, %llu minutes).\n",
+                schemaVersion,
                 static_cast<unsigned>(mPeople.size()),
                 static_cast<unsigned>(mTasks.size()),
                 static_cast<unsigned>(mAssignments.size()),

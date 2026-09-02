@@ -2,7 +2,7 @@
 
 #include <cstddef>
 
-constexpr int DODA_SAVE_SCHEMA_VERSION = 2;
+constexpr int DODA_SAVE_SCHEMA_VERSION = 3;
 
 constexpr size_t DODA_MAX_PEOPLE = 1024;
 constexpr size_t DODA_MAX_TASKS = 1024;

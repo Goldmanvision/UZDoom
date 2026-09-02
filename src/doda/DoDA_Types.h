@@ -30,6 +30,7 @@ struct DoDAPersonRecord
     int Skill;
     int Workload;
     DoDAPersonStatus Status;
+    int Fatigue = 0;
 };
 
 struct DoDALocationRecord

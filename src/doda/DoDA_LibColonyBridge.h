@@ -24,3 +24,5 @@ struct DoDAAssignmentOutput
 
 bool DoDA_OptimizeAssignments(const std::vector<DoDACandidateInput>& candidates,
                               std::vector<DoDAAssignmentOutput>& outAssignments);
+
+bool DoDA_RunLibColonyDeterministicProof();

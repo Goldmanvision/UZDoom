@@ -43,6 +43,23 @@ public:
     FString GetPersonnelCurrentTaskIdText(int index) const;
     FString GetPersonnelCurrentTaskTitle(int index) const;
 
+    // Assignment Snapshot V1 Query API
+    int GetAssignmentSnapshotApiVersion() const { return 1; }
+    FString GetAssignmentSnapshotRevisionText() const;
+    FString GetAssignmentSnapshotStrategicMinutesText() const;
+    int GetAssignmentSnapshotCount() const { return static_cast<int>(mAssignments.size()); }
+
+    FString GetAssignmentIdText(int index) const;
+    FString GetAssignmentPersonIdText(int index) const;
+    FString GetAssignmentPersonDisplayName(int index) const;
+    FString GetAssignmentTaskIdText(int index) const;
+    FString GetAssignmentTaskTitle(int index) const;
+    FString GetAssignmentLocationIdText(int index) const;
+    FString GetAssignmentLocationDisplayName(int index) const;
+    int GetAssignmentTaskStatus(int index) const;
+    int GetAssignmentTaskProgress(int index) const;
+    int GetAssignmentCost(int index) const;
+
     // Location & Task Queries
     int GetLocationCount() const { return static_cast<int>(mLocations.size()); }
     FString GetLocationIdText(int index) const;

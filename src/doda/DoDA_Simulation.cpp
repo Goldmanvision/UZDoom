@@ -1287,6 +1287,167 @@ FString DoDASimulation::GetPersonnelCurrentTaskTitle(int index) const
     return "";
 }
 
+FString DoDASimulation::GetAssignmentSnapshotRevisionText() const
+{
+    return FormatUInt64Decimal(mPersonnelSnapshotRevision);
+}
+
+FString DoDASimulation::GetAssignmentSnapshotStrategicMinutesText() const
+{
+    return FormatUInt64Decimal(mStrategicMinutes);
+}
+
+FString DoDASimulation::GetAssignmentIdText(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mAssignments.size())
+    {
+        return "";
+    }
+    return FormatUInt64Decimal(mAssignments[index].Id);
+}
+
+FString DoDASimulation::GetAssignmentPersonIdText(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mAssignments.size())
+    {
+        return "";
+    }
+    return FormatUInt64Decimal(mAssignments[index].PersonId);
+}
+
+FString DoDASimulation::GetAssignmentPersonDisplayName(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mAssignments.size())
+    {
+        return "";
+    }
+
+    const DoDAPersonId personId = mAssignments[index].PersonId;
+    for (const auto& person : mPeople)
+    {
+        if (person.Id == personId)
+        {
+            return person.Name;
+        }
+    }
+    return "";
+}
+
+FString DoDASimulation::GetAssignmentTaskIdText(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mAssignments.size())
+    {
+        return "";
+    }
+    return FormatUInt64Decimal(mAssignments[index].TaskId);
+}
+
+FString DoDASimulation::GetAssignmentTaskTitle(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mAssignments.size())
+    {
+        return "";
+    }
+
+    const DoDATaskId taskId = mAssignments[index].TaskId;
+    for (const auto& task : mTasks)
+    {
+        if (task.Id == taskId)
+        {
+            return task.Title;
+        }
+    }
+    return "";
+}
+
+FString DoDASimulation::GetAssignmentLocationIdText(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mAssignments.size())
+    {
+        return "";
+    }
+
+    const DoDATaskId taskId = mAssignments[index].TaskId;
+    for (const auto& task : mTasks)
+    {
+        if (task.Id == taskId)
+        {
+            return FormatUInt64Decimal(task.LocationId);
+        }
+    }
+    return "";
+}
+
+FString DoDASimulation::GetAssignmentLocationDisplayName(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mAssignments.size())
+    {
+        return "";
+    }
+
+    const DoDATaskId taskId = mAssignments[index].TaskId;
+    for (const auto& task : mTasks)
+    {
+        if (task.Id == taskId)
+        {
+            for (const auto& location : mLocations)
+            {
+                if (location.Id == task.LocationId)
+                {
+                    return location.Name;
+                }
+            }
+            return "";
+        }
+    }
+    return "";
+}
+
+int DoDASimulation::GetAssignmentTaskStatus(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mAssignments.size())
+    {
+        return 0;
+    }
+
+    const DoDATaskId taskId = mAssignments[index].TaskId;
+    for (const auto& task : mTasks)
+    {
+        if (task.Id == taskId)
+        {
+            return static_cast<int>(task.Status);
+        }
+    }
+    return 0;
+}
+
+int DoDASimulation::GetAssignmentTaskProgress(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mAssignments.size())
+    {
+        return 0;
+    }
+
+    const DoDATaskId taskId = mAssignments[index].TaskId;
+    for (const auto& task : mTasks)
+    {
+        if (task.Id == taskId)
+        {
+            return task.Progress;
+        }
+    }
+    return 0;
+}
+
+int DoDASimulation::GetAssignmentCost(int index) const
+{
+    if (index < 0 || static_cast<size_t>(index) >= mAssignments.size())
+    {
+        return 0;
+    }
+    return mAssignments[index].Cost;
+}
+
 FString DoDASimulation::GetLocationIdText(int index) const
 {
     if (index < 0 || static_cast<size_t>(index) >= mLocations.size())

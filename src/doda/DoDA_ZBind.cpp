@@ -157,6 +157,113 @@ DEFINE_ACTION_FUNCTION(_DoDA, GetPersonnelCurrentTaskTitle)
     ACTION_RETURN_STRING(text);
 }
 
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentSnapshotApiVersion)
+{
+    PARAM_PROLOGUE;
+    ACTION_RETURN_INT(DoDASimulation::GetInstance().GetAssignmentSnapshotApiVersion());
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentSnapshotRevisionText)
+{
+    PARAM_PROLOGUE;
+    FString text = DoDASimulation::GetInstance().GetAssignmentSnapshotRevisionText();
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentSnapshotStrategicMinutesText)
+{
+    PARAM_PROLOGUE;
+    FString text = DoDASimulation::GetInstance().GetAssignmentSnapshotStrategicMinutesText();
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentSnapshotCount)
+{
+    PARAM_PROLOGUE;
+    int count = DoDASimulation::GetInstance().GetAssignmentSnapshotCount();
+    ACTION_RETURN_INT(count);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentIdText)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetAssignmentIdText(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentPersonIdText)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetAssignmentPersonIdText(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentPersonDisplayName)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetAssignmentPersonDisplayName(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentTaskIdText)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetAssignmentTaskIdText(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentTaskTitle)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetAssignmentTaskTitle(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentLocationIdText)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetAssignmentLocationIdText(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentLocationDisplayName)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    FString text = DoDASimulation::GetInstance().GetAssignmentLocationDisplayName(index);
+    ACTION_RETURN_STRING(text);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentTaskStatus)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    int status = DoDASimulation::GetInstance().GetAssignmentTaskStatus(index);
+    ACTION_RETURN_INT(status);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentTaskProgress)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    int progress = DoDASimulation::GetInstance().GetAssignmentTaskProgress(index);
+    ACTION_RETURN_INT(progress);
+}
+
+DEFINE_ACTION_FUNCTION(_DoDA, GetAssignmentCost)
+{
+    PARAM_PROLOGUE;
+    PARAM_INT(index);
+    int cost = DoDASimulation::GetInstance().GetAssignmentCost(index);
+    ACTION_RETURN_INT(cost);
+}
+
 DEFINE_ACTION_FUNCTION(_DoDA, GetLocationCount)
 {
     PARAM_PROLOGUE;

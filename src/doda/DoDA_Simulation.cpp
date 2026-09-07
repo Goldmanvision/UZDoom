@@ -58,8 +58,6 @@ void DoDASimulation::InitializeDefaultFixture()
 
     mAssignments.push_back({ mNextAssignmentId++, 2, 1, 0 });
     mAssignments.push_back({ mNextAssignmentId++, 3, 1, 0 });
-
-    DoDA_RunLibColonyDeterministicProof();
 }
 
 void DoDASimulation::ClearForNewCampaign()
